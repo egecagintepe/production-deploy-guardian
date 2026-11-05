@@ -83,5 +83,16 @@ class TestDeploymentClassifier(unittest.TestCase):
         self.assertEqual(res["decision"], "UNKNOWN_BLOCKED")
         self.assertEqual(res["risk_level"], "CRITICAL_BLOCKED")
 
+    def test_missing_base_commit_diff_fails_closed(self):
+        from deploy_guardian import get_git_diff_files
+        ok, files, err = get_git_diff_files(None)
+        self.assertFalse(ok)
+        self.assertEqual(len(files), 0)
+        self.assertIn("Missing verified deployment baseline", err)
+
+        ok_empty, files_empty, err_empty = get_git_diff_files("   ")
+        self.assertFalse(ok_empty)
+        self.assertIn("Missing verified deployment baseline", err_empty)
+
 if __name__ == "__main__":
     unittest.main()

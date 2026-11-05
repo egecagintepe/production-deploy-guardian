@@ -225,7 +225,7 @@ python scripts/deploy_guardian.py verify-health --config guardian_config.json
 
 ## Testing
 
-Run the full automated test suite (27 tests):
+Run the full automated test suite (29 tests):
 ```bash
 python -m unittest discover -s tests
 ```

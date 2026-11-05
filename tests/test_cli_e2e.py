@@ -49,6 +49,19 @@ class TestDeployGuardianCLI(unittest.TestCase):
         data = json.loads(res.stdout)
         self.assertEqual(data["decision"], "UNKNOWN_BLOCKED")
 
+    def test_classify_cli_missing_base_commit_triggers_unknown_blocked(self):
+        config_path = os.path.join(os.path.dirname(__file__), "..", "guardian_config.example.json")
+        cmd = [
+            sys.executable, CLI_PATH, "classify",
+            "--config", config_path,
+            "--json"
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.assertEqual(res.returncode, 1)  # Non-zero on UNKNOWN_BLOCKED
+        data = json.loads(res.stdout)
+        self.assertEqual(data["decision"], "UNKNOWN_BLOCKED")
+        self.assertIn("baseline", data["reason"].lower())
+
     def test_audit_safety_cli(self):
         # Safe command
         cmd_safe = [sys.executable, CLI_PATH, "audit-safety", "--command", "echo Hello", "--json"]
@@ -64,3 +77,4 @@ class TestDeployGuardianCLI(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -55,12 +55,9 @@ def run_cmd(cmd: List[str], cwd: Optional[str] = None, timeout: int = 30) -> Tup
         return 1, "", str(e)
 
 def get_git_diff_files(base_commit: Optional[str], target_commit: str = "HEAD", cwd: Optional[str] = None) -> Tuple[bool, List[str], str]:
-    if not base_commit:
-        code, out, err = run_cmd(["git", "diff", "--name-only", "HEAD~1", target_commit], cwd=cwd)
-        if code != 0:
-            return False, [], f"git diff failed: {err}"
-        return True, [line.strip() for line in out.splitlines() if line.strip()], ""
-    code, out, err = run_cmd(["git", "diff", "--name-only", base_commit, target_commit], cwd=cwd)
+    if not base_commit or not base_commit.strip():
+        return False, [], "Missing verified deployment baseline commit (--base-commit). Cannot assume HEAD~1 represents deployed state."
+    code, out, err = run_cmd(["git", "diff", "--name-only", base_commit.strip(), target_commit], cwd=cwd)
     if code != 0:
         return False, [], f"git diff between {base_commit} and {target_commit} failed: {err}"
     return True, [line.strip() for line in out.splitlines() if line.strip()], ""
@@ -86,7 +83,7 @@ def classify_changes(diff_files: List[str], config: Dict[str, Any], diff_resolve
         return {
             "decision": "UNKNOWN_BLOCKED",
             "risk_level": "CRITICAL_BLOCKED",
-            "reason": "Unable to resolve Git commit diff against base commit. Deployment blocked pending verification.",
+            "reason": "Unable to resolve Git commit diff against verified deployment baseline commit. Deployment blocked pending verification.",
             "unclassified_files": [],
             "matched_triggers": [],
             "migration_impact": [],
