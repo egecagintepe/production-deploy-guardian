@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "project_name": "example-service",
+  "release_branch": "main",
+  "remote": {
+    "ssh_host": "deploy-target",
+    "commit_file_path": "/var/run/deployed_commit",
+    "min_disk_free_mb": 5120,
+    "warn_disk_free_mb": 10240
+  },
+  "classification_rules": {
+    "full_triggers": [
+      {
+        "pattern": "^migrations/|^db/migrate/|schema\\.prisma|alembic/",
+        "reason": "Database migration detected"
+      },
+      {
+        "pattern": "requirements.*\\.txt$|pyproject\\.toml$|package\\.json$|Gemfile$|go\\.mod$|Cargo\\.toml$",
+        "reason": "Dependency manifest modified"
+      },
+      {
+        "pattern": "Dockerfile|docker-compose.*\\.ya?ml$|^\\.docker/|^k8s/",
+        "reason": "Container or orchestration definition changed"
+      },
+      {
+        "pattern": "^frontend/|^client/|^web/src/|vite\\.config|webpack\\.config",
+        "reason": "Frontend SPA source modified requiring compilation"
+      },
+      {
+        "pattern": "^scripts/deploy|config/settings",
+        "reason": "Deployment scripts or core system settings changed"
+      }
+    ],
+    "ignore_patterns": [
+      "^docs/",
+      "\\.md$",
+      "^\\.github/",
+      "^\\.git",
+      "^tests/unit/"
+    ]
+  },
+  "health_check": {
+    "endpoints": [
+      {
+        "url": "http://127.0.0.1:8000/healthz",
+        "expected_status": 200,
+        "timeout_seconds": 10
+      }
+    ],
+    "required_containers": [
+      "app_web",
+      "app_worker",
+      "app_redis"
+    ]
+  },
+  "deployment_commands": {
+    "fast": "ssh deploy-target 'app-fast-deploy'",
+    "full": "ssh deploy-target 'app-full-deploy'"
+  }
+}
