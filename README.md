@@ -5,11 +5,21 @@
 **Your AI agent can write the deployment. This skill helps it know when *not* to deploy.**
 
 [![CI](https://github.com/egecagintepe/production-deploy-guardian/actions/workflows/ci.yml/badge.svg)](https://github.com/egecagintepe/production-deploy-guardian/actions)
+[![Release](https://img.shields.io/github/v/release/egecagintepe/production-deploy-guardian?color=blue)](https://github.com/egecagintepe/production-deploy-guardian/releases/latest)
+[![skills.sh](https://img.shields.io/badge/skills.sh-production--deploy--guardian-blue)](https://skills.sh/egecagintepe/production-deploy-guardian)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![Agent Skills: v1](https://img.shields.io/badge/Agent%20Skills-v1.0-emerald.svg)](https://agentskills.io/specification)
 
 *Autonomous deployment safety guard, changeset classifier, and bounded error triage loop for AI coding agents and DevOps teams.*
+
+<br />
+
+```bash
+npx skills add egecagintepe/production-deploy-guardian
+```
+
+<br />
 
 ```
    Git Diff ──► [ POSITIVE WHITELIST ] ──► FAST_ELIGIBLE  (Stateless view / template hotfix)
@@ -23,34 +33,39 @@
 
 ---
 
-## The Problem
+## Problem → Solution → Result
 
-When autonomous AI coding agents (Claude Code, Cursor, Codex, Gemini) are tasked with shipping code to production:
-1. **Silent Under-Deployment**: The agent executes an in-place worker reload (`Fast`) when database models or dependencies changed, causing immediate `ModuleNotFoundError` or `OperationalError` outages.
-2. **Needless Over-Deployment**: The agent triggers a 15-minute container rebuild for a one-line typo in a view or template.
-3. **Destructive Operations**: In panics or triage loops, agents run `docker volume prune`, `rm -rf`, or `git reset --hard`, destroying live persistent databases or storage volumes.
-4. **Infinite Flailing Loops**: When a deployment fails, unconstrained agents repeatedly execute failing retries, compounding downtime.
+- **The Problem**: When autonomous AI coding agents (Claude Code, Cursor, Codex, Gemini) ship code to staging or production:
+  1. **Silent Under-Deployment**: The agent executes an in-place worker reload (`Fast`) when database models or dependencies changed, causing immediate `ModuleNotFoundError` or `OperationalError` outages.
+  2. **Needless Over-Deployment**: The agent triggers a 15-minute container rebuild for a one-line typo in a view or template.
+  3. **Destructive Operations**: In panics or triage loops, agents run `docker volume prune`, `rm -rf`, or `git reset --hard`, destroying live persistent databases or storage volumes.
+  4. **Infinite Flailing Loops**: When a deployment fails, unconstrained agents repeatedly execute failing retries, compounding downtime.
+
+- **The Solution**: `production-deploy-guardian` provides a deterministic safety gate. It requires explicit verified deployment baselines (`--base-commit`), classifies changesets using positive whitelisting, intercepts destructive commands, and enforces a strict 3-attempt retry budget.
+
+- **The Result**: Agents deploy safely with minimal downtime, never mistake schema migrations for lightweight hotfixes, cannot execute destructive volume commands, and fail closed (`UNKNOWN_BLOCKED`) whenever changes cannot be proven safe.
 
 ---
 
 ## Quick Install (30 Seconds)
 
-### Using Agent Skills CLI (`skills.sh`)
+### Option 1: Using Agent Skills CLI (`skills.sh`)
 ```bash
 npx skills add egecagintepe/production-deploy-guardian
 ```
 
-### Direct Agent Integration (Claude Code, Cursor, Codex)
+### Option 2: Direct Agent Integration (Claude Code, Cursor, Codex)
 Clone into your project's local agent skills directory:
 ```bash
 git clone https://github.com/egecagintepe/production-deploy-guardian.git .agents/skills/production-deploy-guardian
 ```
 
-### Standalone CLI Tool
+### Option 3: Standalone CLI Tool (Zero Dependencies)
 ```bash
 git clone https://github.com/egecagintepe/production-deploy-guardian.git
 cd production-deploy-guardian
 cp guardian_config.example.json guardian_config.json
+python scripts/deploy_guardian.py --help
 ```
 
 ---
@@ -93,7 +108,7 @@ The Guardian rejects silent assumptions. It classifies changesets using **explic
 1. **`FAST_ELIGIBLE`**: All changed files strictly match whitelisted stateless files (views, serializers, templates). Safe for in-place worker reload.
 2. **`FULL_REQUIRED`**: At least one file matches a rebuild trigger (database migrations, dependency manifests, Dockerfiles, compose specs, compiled SPAs).
 3. **`NO_OP`**: Only documentation, markdown, or ignored assets changed. No runtime deployment necessary.
-4. **`UNKNOWN_BLOCKED`**: Changeset contains unclassified files, or Git diff could not be computed. **Fails closed**.
+4. **`UNKNOWN_BLOCKED`**: Changeset contains unclassified files, or Git diff could not be computed against a verified baseline. **Fails closed**.
 
 ---
 
@@ -101,7 +116,7 @@ The Guardian rejects silent assumptions. It classifies changesets using **explic
 
 ### 1. Classify Changeset (Fast vs Full vs Blocked)
 ```bash
-# Evaluate git diff between deployed commit and current HEAD:
+# Evaluate git diff between verified deployed commit and current HEAD:
 python scripts/deploy_guardian.py classify --config guardian_config.json --base-commit a1b2c3d
 
 # Or evaluate explicit files directly:
@@ -193,6 +208,22 @@ python scripts/deploy_guardian.py verify-health --config guardian_config.json
   }
 }
 ```
+
+---
+
+## Frequently Asked Questions (FAQ)
+
+### Does passing preflight guarantee zero downtime?
+**No.** Preflight ensures that your repository is clean, synchronized with remote origins, and verified locally. True zero downtime depends on your infrastructure: load balancer connection draining, rolling container updates, and backward-compatible non-blocking database migrations.
+
+### Why does `classify` require an explicit `--base-commit`?
+Assuming `HEAD~1` is unsafe in modern Git workflows because feature branches, squashed merges, and rebased commits often contain multiple revisions. If the deployed baseline is missing or unresolved, the classifier refuses to guess and fails closed (`UNKNOWN_BLOCKED`).
+
+### Can regex safety auditing prove arbitrary shell scripts safe?
+**No.** Lexical pattern scanning is a defense-in-depth heuristic designed to catch accidental destructive commands (like `docker volume prune` or `rm -rf /`). Obfuscated shell payloads cannot be proven safe statically. High-consequence operations must rely on explicit allowlists and human review.
+
+### What happens when an unclassified file is changed?
+If a changed file does not match `ignore_patterns`, `full_triggers`, or `fast_eligible_patterns`, the Guardian returns `UNKNOWN_BLOCKED` and exits with an error code. It halts the deployment and requests human confirmation rather than guessing.
 
 ---
 
