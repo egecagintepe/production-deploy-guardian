@@ -18,3 +18,4 @@ If you discover a security vulnerability, dangerous command bypass, or flaw that
    - Expected vs actual safety classification.
 
 We will acknowledge receipt within 48 hours and work with you on a coordinated fix.
+

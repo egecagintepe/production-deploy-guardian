@@ -43,3 +43,4 @@ A deployment is not successful merely because the deployment script exited with 
 1. Container status check confirms all intended services are running (not restarting).
 2. HTTP health checks against live endpoints return expected status codes.
 3. The deployed commit recorded by the server matches the commit requested for release.
+

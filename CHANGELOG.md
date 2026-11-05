@@ -5,15 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-05
+
+### Security & Hardening
+- **Positive Whitelisting Classification**: Eliminated dangerous silent fallbacks to `Fast` deployment for unclassified files. Added four explicit decision states: `FAST_ELIGIBLE`, `FULL_REQUIRED`, `NO_OP`, and `UNKNOWN_BLOCKED`.
+- **Live Remote Synchronization Gate**: Preflight now checks live remote tracking references (`git ls-remote`) instead of relying solely on stale local cache.
+- **Optional Safe Remote Telemetry**: Added read-only SSH preflight diagnostic for root partition free disk space and container daemon responsiveness.
+- **Enhanced Destructive Command Auditor**: Expanded regex scanner to cover shell chaining (`&&`, `||`, `;`), flag variations (`-f`, `--force`), raw block overwrites, and secret dumping.
+- **Official Agent Skills Compliance**: Validated frontmatter and directory layout against the official Agent Skills specification (`npx skills-ref validate`).
+- **Comprehensive E2E Test Suite**: Expanded test coverage to 27 unit and integration tests including synthetic Git repositories and CLI subprocess testing.
+
 ## [1.0.0] - 2026-11-05
 
 ### Added
-- Initial public release of `production-deploy-guardian`.
-- Deterministic changeset classification engine (`Fast` in-place reload vs `Full` rebuild vs `No-Op`).
-- Pre-release Git quality gates verifying clean trees, branch match, and remote synchronization.
-- Dangerous operation safety scanner blocking volume prunes, destructive `rm -rf`, force pushes, and raw table drops.
-- Autonomous bounded failure triage protocol (maximum 3 attempts) with immediate escalation triggers.
-- Post-deployment smoke health verification CLI with configurable endpoint probing and retries.
-- Comprehensive reference manuals: mode classification matrix, failure triage playbook, and safety invariants.
-- Full automated test suite with 100% passing coverage on classification, safety auditing, and health checks.
-- GitHub Actions CI workflow covering Python 3.8 through 3.12 across Ubuntu and Windows.
+- Preliminary release of `production-deploy-guardian`.

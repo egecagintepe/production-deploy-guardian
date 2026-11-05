@@ -71,3 +71,4 @@ These conditions represent stateful data risks, hardware constraints, or externa
 5. **Network, DNS, or Tunnel Outage**:
    - Edge reverse proxy (Cloudflare, AWS ALB, Nginx) cannot reach host.
    - *Why Halt*: External infrastructure must be diagnosed from the network provider console.
+

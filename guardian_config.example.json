@@ -31,6 +31,15 @@
         "reason": "Deployment scripts or core system settings changed"
       }
     ],
+    "fast_eligible_patterns": [
+      "views?\\.py$",
+      "controllers?/",
+      "serializers?\\.py$",
+      "templates/.*\\.html$",
+      "services?/.*\\.py$",
+      "handlers?/",
+      "routes?/"
+    ],
     "ignore_patterns": [
       "^docs/",
       "\\.md$",

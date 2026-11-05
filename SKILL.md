@@ -1,18 +1,18 @@
 ---
 name: production-deploy-guardian
-description: Autonomous deployment guard and release engineer. Validates pre-release Git state, classifies deployment mode (Fast reload vs Full rebuild) based on commit diffs, runs preflight diagnostics, enforces zero-downtime safety invariants, guides bounded remediation loops, and verifies post-deploy health.
+description: Autonomous deployment guard and release engineer. Validates pre-release Git state, classifies deployment mode (Fast reload vs Full rebuild) based on commit diffs with positive whitelisting, runs preflight diagnostics, enforces zero-downtime safety invariants, guides bounded remediation loops, and verifies post-deploy health.
 ---
 
 # Production Deploy Guardian
 
-A robust, vendor-neutral skill for autonomous AI coding agents and DevOps engineers. It guarantees that code releases to remote or containerized environments fail closed on risk, automatically classify the safest deployment strategy, respect strict non-destructive safety invariants, and verify live application health.
+A robust, vendor-neutral skill for autonomous AI coding agents and DevOps engineers. It guarantees that code releases to remote or containerized environments fail closed on risk, automatically classify the safest deployment strategy using explicit positive whitelisting, respect strict non-destructive safety invariants, and verify live application health.
 
 ## Core Capabilities
 
-1. **Pre-Release State Verification**: Validates branch alignment, clean working tree, remote synchronization, and unpushed commits.
-2. **Deterministic Mode Classification**: Analyzes file diffs against the currently deployed commit to distinguish between lightweight `Fast` code/template reloads and heavyweight `Full` rebuilds (migrations, dependencies, containers, frontends).
-3. **Fail-Closed Preflight Telemetry**: Verifies host connectivity, root disk space thresholds, container engine responsiveness, and database migration prerequisites.
-4. **Non-Destructive Safety Enforcement**: Strictly prevents destructive operations (`volume prune`, `rm -rf`, raw table drops, force pushes, secret echoing).
+1. **Pre-Release State Verification**: Validates branch alignment, clean working tree, remote synchronization, and unpushed commits. Supports live remote synchronization checks.
+2. **Deterministic Mode Classification**: Analyzes file diffs against the currently deployed commit. Classifies into 4 explicit states (`FAST_ELIGIBLE`, `FULL_REQUIRED`, `NO_OP`, `UNKNOWN_BLOCKED`).
+3. **Fail-Closed Preflight Telemetry**: Separates local Git verification from safe remote host telemetry (root disk space thresholds, container engine responsiveness, deployed revision hash).
+4. **Non-Destructive Safety Enforcement**: Detects and blocks destructive operations (`volume prune`, `volume rm`, recursive storage deletions, force pushes, raw table drops, secret leaks).
 5. **Bounded Autonomous Remediation**: Provides a structured 3-attempt triage loop for safe, local code fixes while enforcing immediate escalation on stateful, database, or infrastructure failures.
 6. **Post-Deployment Health Smoke Verification**: Probes critical HTTP routes, inspects container states, and verifies deployed revision hashes.
 
@@ -33,17 +33,17 @@ Activate this skill when:
 
 ```
        ┌────────────────────────┐
-       │ 1. Git State Preflight │
+       │ 1. Git State Preflight │ (Local clean tree, branch match, live remote sync)
        └───────────┬────────────┘
                    │ Pass
                    ▼
        ┌────────────────────────┐
-       │ 2. Remote Diagnostics  │ (Disk, Container Engine, Deployed Hash)
+       │ 2. Remote Diagnostics  │ (Optional safe SSH: disk, containers, deployed hash)
        └───────────┬────────────┘
                    │ Pass
                    ▼
        ┌────────────────────────┐
-       │ 3. Mode Classification │ (Fast vs Full based on diff)
+       │ 3. Mode Classification │ (Fast vs Full vs Blocked via explicit whitelisting)
        └───────────┬────────────┘
                    │
                    ▼
@@ -67,39 +67,46 @@ Activate this skill when:
 Before executing any remote operation:
 1. Verify repository root and current branch. Releases must originate from the designated release branch (e.g. `main` or `master`).
 2. Verify that the working tree is clean (`git status --porcelain`). Never deploy uncommitted work.
-3. Fetch remote tracking branch and ensure local `HEAD` matches `origin/<branch>`.
+3. Check remote synchronization against live remote `origin/<branch>`.
 4. Run project-specific linting, typing, and local unit test suites.
 5. If migration definitions exist, verify migration graph consistency (`makemigrations --check --dry-run` or ORM equivalent).
 
 Run the automated guardian preflight:
 ```bash
+# Local git preflight (default)
 python scripts/deploy_guardian.py preflight --config guardian_config.json
+
+# Local git + live remote origin sync check
+python scripts/deploy_guardian.py preflight --config guardian_config.json --check-remote-sync
+
+# Full preflight including safe remote host telemetry (via SSH)
+python scripts/deploy_guardian.py preflight --config guardian_config.json --check-remote-sync --check-remote-host
 ```
 
 ### Step 2: Change-Set Mode Classification
 
 Compute the diff between the currently deployed commit hash and local `HEAD`:
 ```bash
-python scripts/deploy_guardian.py classify --config guardian_config.json
+python scripts/deploy_guardian.py classify --config guardian_config.json --base-commit <PREV_COMMIT>
 ```
 
-- **Full Deploy** is triggered when any of the following patterns are touched:
+- **`FULL_REQUIRED`** is triggered when any of the following patterns are touched:
   - Database schema / migrations (`migrations/`, `db/migrate/`, `schema.prisma`, `alembic/`)
   - Dependency manifests (`requirements*.txt`, `pyproject.toml`, `package.json`, `Gemfile`, `go.mod`)
   - Container / Orchestration specs (`Dockerfile*`, `docker-compose*.yml`, `k8s/`, `helm/`)
   - Frontend SPA sources requiring compilation (`frontend/src/`, `vite.config.*`, `astro.config.*`)
   - System settings or deployment scripts (`config/settings/`, `scripts/deploy*.sh`)
-- **Fast Deploy** is permitted ONLY when all modified files are strictly confined to:
+- **`FAST_ELIGIBLE`** is permitted ONLY when all modified files match positive whitelist patterns:
   - Stateless backend views, controllers, serializers, helper functions
   - Server-rendered templates or static styling tweaks
-  - Documentation, comments, or isolated unit test files
-
-> **Safety Rule:** If the previously deployed commit cannot be determined or if diff analysis is inconclusive, always default to **Full Deploy**.
+  - No database migrations, no dependency manifest changes, no container updates
+- **`UNKNOWN_BLOCKED`** is triggered if any modified file does not match known rules, or if commit diff cannot be resolved:
+  - **Halt deployment immediately** and report unclassified files for manual operator review.
 
 ### Step 3: Production Safety Invariants
 
 Under no circumstances should the agent run or generate commands for:
-- `docker volume prune` or `docker system prune -a --volumes`
+- `docker volume prune`, `docker volume rm`, or `docker system prune -a --volumes`
 - Indiscriminate recursive deletions on persistent data directories (`rm -rf /var/lib/*` or storage volumes)
 - Unauthenticated or forced resets (`git reset --hard` or `git clean -fdx` on remote hosts)
 - Force pushing to release branches (`git push --force`)

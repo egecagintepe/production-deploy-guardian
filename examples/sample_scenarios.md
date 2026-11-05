@@ -93,3 +93,4 @@ python scripts/deploy_guardian.py audit-safety --command "docker compose down &&
 ```
 
 *Analysis*: The dangerous volume prune operation is immediately caught and blocked.
+
